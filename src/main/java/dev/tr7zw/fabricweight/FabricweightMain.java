@@ -17,14 +17,27 @@ public class FabricweightMain {
             System.out.println("Git not found!");
             System.exit(1);
         }
-        if (args.length != 1) {
-            System.err.println("Arguments: 'patch' to create a workspace, 'rb' to rebuild the patches!");
+        if (args.length < 1) {
+            System.err.println("Arguments:");
+            System.err.println(" - 'patch' to create a workspace from upstream with applied patched");
+            System.err.println(" - 'rb' to rebuild the patches based on the workspace");
+            System.err.println(" - 'rebase n' to modify the last n(by default 1) commits");
+            System.err.println(" - 'commit' complete the current rebase by adding all changes to the commit");
             System.exit(1);
         }
         if ("patch".equals(args[0])) {
             setupWorkspace(new File("."));
         } else if ("rb".equals(args[0])) {
             rebuildPatches(new File("workspace"), new File("patches"));
+        } else if ("rebase".equals(args[0])) {
+            int amount = 1;
+            if(args.length >= 2) {
+                amount = Integer.parseInt(args[1]);
+            }
+            GitUtil.runGitCommand(new File("workspace"), new String[] {"git", "rebase", "-i", "HEAD~" + amount});
+        } else if ("commit".equals(args[0])) {
+            GitUtil.runGitCommand(new File("workspace"), new String[] {"git", "add", "*"});
+            GitUtil.runGitCommand(new File("workspace"), new String[] {"git", "rebase", "--continue"});
         } else {
             System.err.println("Arguments: 'patch' to create a workspace, 'rb' to rebuild the patches!");
             System.exit(1);

@@ -12,17 +12,16 @@ import dev.tr7zw.fabricweight.util.GitUtil;
 
 public class FabricweightMain {
 
+    private static List<String> fabricweightGitignore = Arrays.asList(".gradle/", "upstream/", "tmp/", "workspace/",
+            "scripts/", "patcher", ".project", "/bin/");
+
     public static void main(String[] args) throws IOException {
         if (!GitUtil.gitAvailable()) {
             System.out.println("Git not found!");
             System.exit(1);
         }
         if (args.length < 1) {
-            System.err.println("Arguments:");
-            System.err.println(" - 'patch' to create a workspace from upstream with applied patched");
-            System.err.println(" - 'rb' to rebuild the patches based on the workspace");
-            System.err.println(" - 'rebase n' to modify the last n(by default 1) commits");
-            System.err.println(" - 'commit' complete the current rebase by adding all changes to the commit");
+            printUsage();
             System.exit(1);
         }
         if ("patch".equals(args[0])) {
@@ -31,17 +30,64 @@ public class FabricweightMain {
             rebuildPatches(new File("workspace"), new File("patches"));
         } else if ("rebase".equals(args[0])) {
             int amount = 1;
-            if(args.length >= 2) {
+            if (args.length >= 2) {
                 amount = Integer.parseInt(args[1]);
             }
-            GitUtil.runGitCommand(new File("workspace"), new String[] {"git", "rebase", "-i", "HEAD~" + amount});
+            GitUtil.runGitCommand(new File("workspace"), new String[] { "git", "rebase", "-i", "HEAD~" + amount });
         } else if ("commit".equals(args[0])) {
-            GitUtil.runGitCommand(new File("workspace"), new String[] {"git", "add", "*"});
-            GitUtil.runGitCommand(new File("workspace"), new String[] {"git", "rebase", "--continue"});
+            GitUtil.runGitCommand(new File("workspace"), new String[] { "git", "add", "*" });
+            GitUtil.runGitCommand(new File("workspace"), new String[] { "git", "rebase", "--continue" });
+        } else if ("convert".equals(args[0])) {
+            if (args.length < 4) {
+                printUsage();
+                System.exit(1);
+            }
+            convertBranch(args[1], args[2], args[3]);
         } else {
-            System.err.println("Arguments: 'patch' to create a workspace, 'rb' to rebuild the patches!");
+            printUsage();
             System.exit(1);
         }
+    }
+
+    public static void printUsage() {
+        System.err.println("Arguments:");
+        System.err.println(" - 'patch' to create a workspace from upstream with applied patched");
+        System.err.println(" - 'rb' to rebuild the patches based on the workspace");
+        System.err.println(" - 'rebase <n>' to modify the last n(by default 1) commits");
+        System.err.println(" - 'commit' complete the current rebase by adding all changes to the commit");
+        System.err.println(" - 'convert <new branch name> <upstream> <sha>' convert the current branch into a fork");
+    }
+
+    public static void convertBranch(String branchName, String upstream, String sha) throws IOException {
+        // switch to a new orphan branch
+        GitUtil.runGitCommand(new File("."), new String[] { "git", "checkout", "--orphan", branchName });
+        // move all current data into a placeholder folder
+        File tmp = new File("tmp");
+        tmp.mkdirs();
+        FileUtil.moveFiles(new File("."), tmp, file -> {
+            return file.getName().equals("tmp") || file.getName().toLowerCase().startsWith("fabricweight")
+                    || file.getName().equals(".git");
+        });
+        // setup fabricweight
+        Files.write(new File("repo").toPath(), upstream.getBytes());
+        Files.write(new File("sha").toPath(), sha.getBytes());
+        new File("patches").mkdirs();
+        Files.write(new File(".gitignore").toPath(), String.join("\n", fabricweightGitignore).getBytes());
+        // pull upstream
+        setupWorkspace(new File("."));
+        // copy in the current branch into the workspace
+        File workspace = new File("workspace");
+        FileUtil.delete(workspace, file -> {
+            return file.getName().equals("workspace") || (file.getAbsolutePath().contains(".git")
+                    && !file.getAbsolutePath().contains(".github") && !file.getAbsolutePath().contains(".gitignore"));
+        });
+        FileUtil.moveFiles(tmp, workspace, file -> false);
+        // create commit
+        GitUtil.runGitCommand(new File("workspace"), new String[] { "git", "add", "*" });
+        GitUtil.runGitCommand(new File("workspace"), new String[] { "git", "commit" });
+        rebuildPatches(new File("workspace"), new File("patches"));
+        FileUtil.deleteEmptyDirectories(new File("."), file -> file.getName().equals("patches"));
+        System.out.println("Conversion done.");
     }
 
     public static File setupWorkspace(File folder) throws IOException {
@@ -73,7 +119,7 @@ public class FabricweightMain {
         FileUtil.delete(new File(dir, "upstream"));
         GitUtil.runGitCommand(dir, new String[] { "git", "clone", repo, "upstream" });
         GitUtil.runGitCommand(new File(dir, "upstream"), new String[] { "git", "branch", "-f", "upstream", sha });
-        GitUtil.runGitCommand(new File(dir, "upstream"), new String[] { "git", "checkout", "upstream"});
+        GitUtil.runGitCommand(new File(dir, "upstream"), new String[] { "git", "checkout", "upstream" });
     }
 
     private static void createWorkspace(File workspaceDir, File upstreamDir) throws IOException {

@@ -31,7 +31,7 @@ public class GitUtil {
         }
         return true;
     }
-    
+
     public static void runGitCommand(File dir, String[] command) {
         try {
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -46,14 +46,16 @@ public class GitUtil {
                 System.out.println(line);
             }
             waitForExit(p);
-            if(p.exitValue() != 0) {
-                throw new RuntimeException("Git command failed!");
+            if (p.exitValue() != 0) {
+                throw new RuntimeException("Error while running git command `" + String.join(" ", command) + "` in " + dir.getAbsolutePath());
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException(
+                    "Error while running git command `" + String.join(" ", command) + "` in " + dir.getAbsolutePath(),
+                    e);
         }
     }
-    
+
     public static String runGitCommandGetBranchName(File dir, String[] command) {
         try {
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -66,7 +68,7 @@ public class GitUtil {
 
             String name = "upstream";
             while ((line = reader.readLine()) != null) {
-                if(line.contains("upstream/")) {
+                if (line.contains("upstream/")) {
                     name = line.split("/")[1].trim();
                 }
             }
@@ -76,7 +78,7 @@ public class GitUtil {
             throw new RuntimeException(e);
         }
     }
-    
+
     public static boolean runGitCommandCheckFail(File dir, String[] command) {
         try {
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -96,11 +98,11 @@ public class GitUtil {
             throw new RuntimeException(e);
         }
     }
-    
+
     private static void waitForExit(Process p) {
         long start = System.currentTimeMillis();
-        while(p.isAlive()) {
-            if(start + 1000*60 < System.currentTimeMillis()) {
+        while (p.isAlive()) {
+            if (start + 1000 * 60 < System.currentTimeMillis()) {
                 throw new RuntimeException("The git process took too long! " + p.isAlive());
             }
             try {

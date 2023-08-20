@@ -141,7 +141,7 @@ public class FabricweightMain {
         for (String patch : patches) {
             System.out.println("Applying " + patch);
             boolean fail = GitUtil.runGitCommandCheckFail(workspaceDir, new String[] { "git", "am", "--3way",
-                    "--ignore-whitespace", new File(patchDir, patch).getAbsolutePath() });
+                    "--ignore-whitespace", "--reject", new File(patchDir, patch).getAbsolutePath() });
             if (fail) {
                 System.out.println(patch + " did not apply cleanly!");
                 System.exit(1);
